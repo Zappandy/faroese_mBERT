@@ -1,4 +1,4 @@
-from transformers import BertTokenizer, AutoModel
+from transformers import BertTokenizer, BertModel
 from tokenizers import trainers
 import torch
 from io import open
@@ -11,18 +11,44 @@ all_sentences = leipzig_corpus.iloc[:, 1].tolist()
 
 print(leipzig_corpus.iloc[1, 1])
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
-leipzig_corpus.iloc[:, 1] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
+bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+#tokenizer.add_tokens
+
+
+#bert_vocab = tokenizer.get_vocab().keys()  
+#with open("bert_vocabulary.txt", 'w') as f:
+#    for token in bert_vocab:
+#        f.write(token + '\n')
+#
+
+leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
 sample_sent = tokenizer.convert_tokens_to_ids(leipzig_corpus.iloc[1, 1])
 print()
 print(sample_sent)
 print(leipzig_corpus.iloc[1, 1])
+print(leipzig_corpus.head(n=5))
+new_tokens = [word for sent in leipzig_corpus["tokenized"].tolist() for word in sent]
+#print(tokenizer.add_tokens(new_tokens + ["testing_TOKEN_TOKEN"]))
+#print(tokenizer.add_tokens(new_tokens))
+new_vocab = tokenizer.get_vocab().keys()
+with open("test_vocab.txt", "w") as f:
+    for token in new_vocab:
+        f.write(token + '\n')
+#updated_tokenizer = pre_trained_tokenizer.train(
+#          technical_text,
+#            initial_vocabulary=vocab
+#            )
+#
+#new_vocab = updated_tokenizer.get_vocab()  # 'new_vocab' contains all words in 'vocab' plus some new words
 
-bert_model = AutoModel.from_pretrained('bert-base-multilingual-cased')
+# AFTER SEP TOKENS, we see the augmented tokens
+# Standardize numbers to unicodes and/or ASCII
 
 raise SystemExit
 
 
 # Do we need this encoding for pre-training?
+# 99 tokens
 encoded = tz.encode_plus(add_special_tokens=True,  # Add [CLS] and [SEP]
                          max_length = 64,  # maximum length of a sentence
                          pad_to_max_length=True,  # Add [PAD]s
@@ -30,7 +56,7 @@ encoded = tz.encode_plus(add_special_tokens=True,  # Add [CLS] and [SEP]
                          return_tensors = 'pt',  # ask the function to return PyTorch tensors
                          )
 
-
+# language modeling from hugging face. 
 class fineBERT(torch.nn.Module):
 
     def __init__(self):
