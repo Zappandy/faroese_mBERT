@@ -4,14 +4,26 @@ import torch
 from io import open
 from conllu import parse_incr
 import pandas as pd
+import re
 
 corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
-leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
-all_sentences = leipzig_corpus.iloc[:, 1].tolist()
-
-print(leipzig_corpus.iloc[1, 1])
+f = open(corpus_file, 'r', encoding="utf-8")
+faroeseRegex = re.compile(r"^\d+\s+")
+faroese_sents = [faroeseRegex.sub('', sent) for sent in f.readlines()]  # for faroese
+faroese_words = [word for sent in faroese_sents for word in sent]
+f.close()
+str_corpus = "".join(faroese_sents)
+#leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
-bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+#bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+
+for w in faroese_words:  # too flat, need tokens instead
+    x = tokenizer.tokenize(w)
+    print(x)
+    #if "[UNK]" == x:
+    #    print(w)
+    #    raise SystemExit
+raise SystemExit
 #tokenizer.add_tokens
 
 
@@ -21,19 +33,22 @@ bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 #        f.write(token + '\n')
 #
 
+
+
 leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
 sample_sent = tokenizer.convert_tokens_to_ids(leipzig_corpus.iloc[1, 1])
 print()
-print(sample_sent)
-print(leipzig_corpus.iloc[1, 1])
-print(leipzig_corpus.head(n=5))
+
+#leipzig_corpus.loc[1, "tokenized"].append("TITO_@323")  # adding token to test new token
+#leipzig_corpus.iloc[1, 1] = leipzig_corpus.iloc[1, 1] + ["TITO_@323"]  # tokenized col!
 new_tokens = [word for sent in leipzig_corpus["tokenized"].tolist() for word in sent]
-#print(tokenizer.add_tokens(new_tokens + ["testing_TOKEN_TOKEN"]))
-#print(tokenizer.add_tokens(new_tokens))
+print(tokenizer.add_tokens(new_tokens))
 new_vocab = tokenizer.get_vocab().keys()
 with open("test_vocab.txt", "w") as f:
     for token in new_vocab:
         f.write(token + '\n')
+
+model.resize_token_embeddings(len(tokenizer))
 #updated_tokenizer = pre_trained_tokenizer.train(
 #          technical_text,
 #            initial_vocabulary=vocab
