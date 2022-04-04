@@ -10,50 +10,45 @@ corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
 f = open(corpus_file, 'r', encoding="utf-8")
 faroeseRegex = re.compile(r"^\d+\s+")
 faroese_sents = [faroeseRegex.sub('', sent) for sent in f.readlines()]  # for faroese
-faroese_words = [sent.split() for sent in faroese_sents]
-punc_tokens = ['“', '”', '´', '`', '–', '‐', '’', '‘', '—', '…'] 
-faroese_words = [word for sent in faroese_words for word in sent]
+faroese_words = [word for sent in faroese_sents for word in sent]
 f.close()
 str_corpus = "".join(faroese_sents)
-leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
+#leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
-tokenizer.add_tokens(punc_tokens)
 #bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 
-unk_tokens = dict()
-for w in faroese_words: 
-    single_tokens = tokenizer.tokenize(w)
-    if "[UNK]" in single_tokens:
-        unk_tokens[w] = single_tokens
-print(unk_tokens)
+for w in faroese_words:  # too flat, need tokens instead
+    x = tokenizer.tokenize(w)
+    print(x)
+    #if "[UNK]" == x:
+    #    print(w)
+    #    raise SystemExit
+raise SystemExit
+#tokenizer.add_tokens
+
 
 #bert_vocab = tokenizer.get_vocab().keys()  
 #with open("bert_vocabulary.txt", 'w') as f:
 #    for token in bert_vocab:
 #        f.write(token + '\n')
 #
-text = tokenizer.tokenize(str_corpus)
-final_unks = []
-for i,  w in enumerate(text):
-    if 'UNK' in w:
-        final_unks.append((text[i-1], text[i+1]))
-print(final_unks)
+
+
 
 leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
-#sample_sent = tokenizer.convert_tokens_to_ids(leipzig_corpus.iloc[1, 1])
+sample_sent = tokenizer.convert_tokens_to_ids(leipzig_corpus.iloc[1, 1])
+print()
 
 #leipzig_corpus.loc[1, "tokenized"].append("TITO_@323")  # adding token to test new token
 #leipzig_corpus.iloc[1, 1] = leipzig_corpus.iloc[1, 1] + ["TITO_@323"]  # tokenized col!
-#new_tokens = [word for sent in leipzig_corpus["tokenized"].tolist() for word in sent]
-for sent in leipzig_corpus["tokenized"]:
-    if "[UNK]" in sent:
-        print(sent)
+new_tokens = [word for sent in leipzig_corpus["tokenized"].tolist() for word in sent]
+print(tokenizer.add_tokens(new_tokens))
 new_vocab = tokenizer.get_vocab().keys()
-#with open("test_vocab.txt", "w") as f:
-#    for token in new_vocab:
-#        f.write(token + '\n')
+with open("test_vocab.txt", "w") as f:
+    for token in new_vocab:
+        f.write(token + '\n')
 
-#model.resize_token_embeddings(len(tokenizer))
+model.resize_token_embeddings(len(tokenizer))
 #updated_tokenizer = pre_trained_tokenizer.train(
 #          technical_text,
 #            initial_vocabulary=vocab
