@@ -10,29 +10,39 @@ corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
 f = open(corpus_file, 'r', encoding="utf-8")
 faroeseRegex = re.compile(r"^\d+\s+")
 faroese_sents = [faroeseRegex.sub('', sent) for sent in f.readlines()]  # for faroese
-faroese_words = [word for sent in faroese_sents for word in sent]
-f.close()
+# faroese_words = [word for sent in faroese_sents for word in sent]
+# print(faroese_sents)
 str_corpus = "".join(faroese_sents)
-#leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
+test = tokenizer.tokenize(str_corpus)
+# print(str_corpus)
+print(test)
+f.close()
+
+raise SystemExit
+
+# str_corpus = "".join(faroese_sents)
+#leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
+# tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
 #bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 
-for w in faroese_words:  # too flat, need tokens instead
-    x = tokenizer.tokenize(w)
-    print(x)
+
+# for w in str_corpus:  # too flat, need tokens instead
+#     x = tokenizer.tokenize(w)
+#     print(x)
+    # print(x)
     #if "[UNK]" == x:
     #    print(w)
     #    raise SystemExit
-raise SystemExit
+# raise SystemExit
 #tokenizer.add_tokens
 
 
-#bert_vocab = tokenizer.get_vocab().keys()  
-#with open("bert_vocabulary.txt", 'w') as f:
+# bert_vocab = tokenizer.get_vocab().keys()
+# with open("bert_vocabulary.txt", 'w') as f:
 #    for token in bert_vocab:
 #        f.write(token + '\n')
 #
-
 
 
 leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
