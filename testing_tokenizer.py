@@ -18,20 +18,14 @@ str_corpus = "".join(faroese_sents)
 leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
 tokenizer.add_tokens(punc_tokens)
-#bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 
-unk_tokens = dict()
-for w in faroese_words: 
-    single_tokens = tokenizer.tokenize(w)
-    if "[UNK]" in single_tokens:
-        unk_tokens[w] = single_tokens
-print(unk_tokens)
+#unk_tokens = dict()
+#for w in faroese_words: 
+#    single_tokens = tokenizer.tokenize(w)
+#    if "[UNK]" in single_tokens:
+#        unk_tokens[w] = single_tokens
 
-#bert_vocab = tokenizer.get_vocab().keys()  
-#with open("bert_vocabulary.txt", 'w') as f:
-#    for token in bert_vocab:
-#        f.write(token + '\n')
-#
 text = tokenizer.tokenize(str_corpus)
 final_unks = []
 for i,  w in enumerate(text):
@@ -40,20 +34,12 @@ for i,  w in enumerate(text):
 print(final_unks)
 
 leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
-#sample_sent = tokenizer.convert_tokens_to_ids(leipzig_corpus.iloc[1, 1])
-
-#leipzig_corpus.loc[1, "tokenized"].append("TITO_@323")  # adding token to test new token
-#leipzig_corpus.iloc[1, 1] = leipzig_corpus.iloc[1, 1] + ["TITO_@323"]  # tokenized col!
-#new_tokens = [word for sent in leipzig_corpus["tokenized"].tolist() for word in sent]
 for sent in leipzig_corpus["tokenized"]:
     if "[UNK]" in sent:
         print(sent)
 new_vocab = tokenizer.get_vocab().keys()
-#with open("test_vocab.txt", "w") as f:
-#    for token in new_vocab:
-#        f.write(token + '\n')
 
-#model.resize_token_embeddings(len(tokenizer))
+bert_model.resize_token_embeddings(len(tokenizer))
 #updated_tokenizer = pre_trained_tokenizer.train(
 #          technical_text,
 #            initial_vocabulary=vocab
@@ -64,18 +50,14 @@ new_vocab = tokenizer.get_vocab().keys()
 # AFTER SEP TOKENS, we see the augmented tokens
 # Standardize numbers to unicodes and/or ASCII
 
-raise SystemExit
 
-
-# Do we need this encoding for pre-training?
-# 99 tokens
-encoded = tz.encode_plus(add_special_tokens=True,  # Add [CLS] and [SEP]
-                         max_length = 64,  # maximum length of a sentence
-                         pad_to_max_length=True,  # Add [PAD]s
-                         return_attention_mask = True,  # Generate the attention mask
-                         return_tensors = 'pt',  # ask the function to return PyTorch tensors
-                         )
-
+#encoded = tz.encode_plus(add_special_tokens=True,  # Add [CLS] and [SEP]
+#                         max_length = 64,  # maximum length of a sentence
+#                         pad_to_max_length=True,  # Add [PAD]s
+#                         return_attention_mask = True,  # Generate the attention mask
+#                         return_tensors = 'pt',  # ask the function to return PyTorch tensors
+#                         )
+#
 # language modeling from hugging face. 
 class fineBERT(torch.nn.Module):
 
@@ -86,42 +68,17 @@ eval_file = open("UD_Faroese-OFT/fo_oft-ud-test.conllu", "r", encoding="utf-8") 
 faroese_oft = [sent for sent in parse_incr(eval_file)]
 
 def read_conll(input_file):
-        """Reads a conllu file."""
-        ids = []
-        texts = []
-        tags = []
-        #
-        text = []
-        tag = []
-        idx = None
-        for line in open(input_file, encoding="utf-8"):
-            if line.startswith("# sent_id ="):
-                idx = line.strip().split()[-1]
-                ids.append(idx)
-            elif line.startswith("#"):
-                pass
-            elif line.strip() == "":
-                texts.append(text)
-                tags.append(tag)
-                text, tag = [], []
-            else:
-                try:
-                    splits = line.strip().split("\t")
-                    token = splits[1] # the token
-                    label = splits[3] # the UD POS Tag label
-                    text.append(token)
-                    tag.append(label)
-                except:
-                    print(line)
-                    print(idx)
-                    raise
-        return ids, texts, tags
-ids, texts, tags = read_conll("UD_Faroese-OFT/fo_oft-ud-test.conllu")
-print(ids[-4])
-print(tags[-4])
-print(faroese_oft[-4])
+    regexSent = re.compile(r"^#\stext\s=\s")
+    text = list()
+    for line in open(input_file, encoding="utf-8"):
+        if line.startswith("# text ="):
+            text.append(regexSent.sub('', line))
+    return text
 
-
+texts = "\n".join(read_conll("UD_Faroese-OFT/fo_oft-ud-test.conllu"))
+texts = tokenizer.tokenize(texts)
+print(texts[:10])
+raise SystemExit
 def subword_tokenize(tokens, labels):  # Faroese to closest Icelandic
     """
     tokens: List of word tokens.
@@ -149,5 +106,3 @@ def subword_tokenize(tokens, labels):  # Faroese to closest Icelandic
     return split_tokens, split_labels, idx_map
 
 
-all_tokens, pos_tags, idx = subword_tokenize(texts, tags)
-print(all_tokens[-4])
