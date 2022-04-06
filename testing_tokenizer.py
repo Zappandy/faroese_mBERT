@@ -1,71 +1,93 @@
 from transformers import BertTokenizer, BertModel
 from tokenizers import trainers
+from unidecode import unidecode
 import torch
-from io import open
-from conllu import parse_incr
+import torch.nn.functional as F
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+#from torchsummary import summary
 import pandas as pd
+from tqdm import tqdm
+from conllu import parse_incr
 import re
 
+# https://towardsdatascience.com/how-to-use-bert-from-the-hugging-face-transformer-library-d373a22b0209
+# https://colab.research.google.com/github/huggingface/notebooks/blob/master/transformers_doc/multilingual.ipynb
 corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
 
 f = open(corpus_file, 'r', encoding="utf-8")
 faroese_Regex = re.compile(r"^\d+\s+")
 faroese_sents = [faroese_Regex.sub('', sent) for sent in f.readlines()]  # for faroese
+punctuation = {0x2018:0x27, 0x2019:0x27, 0x201C:0x22, 0x201D:0x22, 0x2013:0x2D, 0x2010:0x2D, 0x2014:0x2D, 0x2026:0x85}
+faroese_sents = [sent.translate(punctuation) for sent in faroese_sents]
+
 faroese_words = [sent.split() for sent in faroese_sents]
-punc_tokens = ['“', '”', '´', '`', '–', '‐', '’', '‘', '—', '…']
 faroese_words = [word for sent in faroese_words for word in sent]
 f.close()
+# https://neptune.ai/blog/how-to-code-bert-using-pytorch-tutorial
+train_corpus = "".join(faroese_sents)
+#tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
+tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+#bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 
-str_corpus = "".join(faroese_sents)
-leipzig_corpus = pd.read_csv(corpus_file, delimiter='\t', header=None)
-tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
-tokenizer.add_tokens(punc_tokens)
-bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+unk_tokens = dict()
+long_tokens = list()
+for w in faroese_words: 
+    single_tokens = tokenizer.tokenize(w)
+    if "[UNK]" in single_tokens:
+        unk_tokens[w] = single_tokens
+    long_tokens.append((w, single_tokens))
 
-#unk_tokens = dict()
-#for w in faroese_words: 
-#    single_tokens = tokenizer.tokenize(w)
-#    if "[UNK]" in single_tokens:
-#        unk_tokens[w] = single_tokens
+testing = [len(subwords[1]) for subwords in long_tokens]
+print(set(testing))
+print(max(testing))  # 25
+print(unk_tokens)
 
-text = tokenizer.tokenize(str_corpus)
-final_unks = []
-for i,  w in enumerate(text):
-    if 'UNK' in w:
-        final_unks.append((text[i-1], text[i+1]))
-print(final_unks)
+#text = tokenizer.tokenize(train_corpus)
+#final_unks = []
+#for i,  w in enumerate(text):
+#    if 'UNK' in w:
+#        final_unks.append((text[i-1], text[i+1]))
+#print(final_unks)
+#new_vocab = tokenizer.get_vocab().keys()
 
-leipzig_corpus["tokenized"] = leipzig_corpus.iloc[:, 1].map(tokenizer.tokenize)
-for sent in leipzig_corpus["tokenized"]:
-    if "[UNK]" in sent:
-        print(sent)
-new_vocab = tokenizer.get_vocab().keys()
+#bert_model.resize_token_embeddings(len(tokenizer))
 
-bert_model.resize_token_embeddings(len(tokenizer))
+# 512 for max length?
+#dataset = tokenizer.encode_plus(train_corpus, truncation=True, max_length=512, return_attention_mask=True, return_tensors="pt")
+#output = bert_model(**dataset)
+#print(dataset.keys())  # input_ids --> tensors
 
-#updated_tokenizer = pre_trained_tokenizer.train(
-#          technical_text,
-#            initial_vocabulary=vocab
-#            )
-#
-#new_vocab = updated_tokenizer.get_vocab()  # 'new_vocab' contains all words in 'vocab' plus some new words
+class BERTDataset(Dataset):
+    def __init__(self, path, txt_file, tokenizer, max_length):
+        super(BERTDataset, self).__init__()
+        self.path = path
+        self.train_set = pd.read_csv(txt_file, delimiter='\t', header=None, index_col=None)
+        self.train_set.drop(0, inplace=True, axis=1)
+        self.max_length = max_length
+        self.tokenizer = tokenizer
 
-# AFTER SEP TOKENS, we see the augmented tokens
-# Standardize numbers to unicodes and/or ASCII
+    def __len__(self):
+        return len(self.train_set)
+    def __getitem__(self, index):
+        sent_1 = self.train_set.iloc[index]
+        print(sent_1)
+        inputs = self.tokenizer.encode_plus(sent_1, truncation=True, max_length=self.max_length, return_attention_mask=True, return_tensors="pt")
+        ids = inputs["input_ids"]
+        token_type_ids = inputs["token_type_ids"]
+        mask = inputs["attention_mask"]
+        return {"ids": torch.tensor(ids, dtype=torch.long), "mask": torch.tensor(mask, dtype=torch.long), "token_type_ids": torch.tensor(token_type_ids, dtype=torch.long)}
 
+# https://colab.research.google.com/github/YuvalPeleg/transformers-workshop/blob/master/Fine_Tuning_Sentence_Classification.ipynb
+corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
+tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
+dataset = BERTDataset('.', corpus_file, tokenizer, max_length=100)
+dataloader = DataLoader(dataset=dataset,batch_size=32)
+print(dataloader)
+#print(dataset.train_set)
+raise SystemExit
 
-#encoded = tz.encode_plus(add_special_tokens=True,  # Add [CLS] and [SEP]
-#                         max_length = 64,  # maximum length of a sentence
-#                         pad_to_max_length=True,  # Add [PAD]s
-#                         return_attention_mask = True,  # Generate the attention mask
-#                         return_tensors = 'pt',  # ask the function to return PyTorch tensors
-#                         )
-#
-# language modeling from hugging face. 
-# class fineBERT(torch.nn.Module):
-#
-#     def __init__(self):
-#         print("testing")
+dataloader=DataLoader(dataset=dataset,batch_size=32)
 
 eval_file = open("UD_Faroese-OFT/fo_oft-ud-test.conllu", "r", encoding="utf-8")  # https://www.youtube.com/watch?v=lvJRFMvWtFI
 faroese_oft = [sent for sent in parse_incr(eval_file)]
@@ -81,33 +103,23 @@ def read_conll(input_file):
 texts = "\n".join(read_conll("UD_Faroese-OFT/fo_oft-ud-test.conllu"))
 texts = tokenizer.tokenize(texts)
 print(texts[:10])
-raise SystemExit
 
+class fineBERT(torch.nn.Module):  # https://luv-bansal.medium.com/fine-tuning-bert-for-text-classification-in-pytorch-503d97342db2
+    def __init__(self):
+        super(fineBERT, self).__init__()
+        self.bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+        self.out = torch.nn.Linear(768, 1)
 
-# def subword_tokenize(tokens, labels):  # Faroese to closest Icelandic
-#     """
-#     tokens: List of word tokens.
-#     labels: List of PoS tags.
-#     Returns:
-#     List of subword tokens.
-#     List of propagated tags.
-#     List of indexes mapping subwords to the original word.
-#     """
-#
-#     # english bert instead of mBERT? Zero-shot in fine tuning...
-#     # fine tune on Danish or closest related language to Faroese
-#     # downstream task would be the focus
-#
-#     # NEW NOTES: mBERT with NO PRE TRAINING IN FAROESE. Just fine tuning mBERT with speech
-#     # tagging to Faroese.
-#     # New new: no no pre-training fine tune English
-#     tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
-#     split_tokens, split_labels = [], []
-#     idx_map = []
-#     for ix, sub_token in enumerate(tokens):
-#         split_tokens.append(sub_token)
-#         split_labels.append(labels[ix])
-#         idx_map.append(ix)
-#     return split_tokens, split_labels, idx_map
+    def forward(self, ids, mask, token_type_ids):
+        _, output = self.bert_model(ids, attention_mask=mask, token_type_ids=token_type_ids, return_dict=False)
+        return self.out(output)
 
+loss_fn = torch.nn.BCEWithLogitsLoss()
 
+model = fineBERT()
+optimizer= optim.Adam(model.parameters(),lr= 0.0001)
+
+# no pre-training  - https://colab.research.google.com/github/hybridnlp/tutorial/blob/master/01a_nlm_and_contextual_embeddings.ipynb
+
+for param in model.bert_model.parameters():
+        param.requires_grad = False
