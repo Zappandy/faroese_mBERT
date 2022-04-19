@@ -28,7 +28,7 @@ f.close()
 train_corpus = "".join(faroese_sents)
 #tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased", do_lower_case=False)
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
-#bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
+bert_model = BertModel.from_pretrained("bert-base-multilingual-cased")
 
 unk_tokens = dict()
 long_tokens = list()
@@ -40,9 +40,32 @@ for w in faroese_words:
 
 testing = [len(subwords[1]) for subwords in long_tokens]
 print(set(testing))
-print(max(testing))  # 25
+print(max(testing))  # 25 highest segmentations.
 print(unk_tokens)
 
+longest = [subwords[0] for subwords in long_tokens if len(subwords[1]) >= 11]  # try segment from 10 or higher and clean web addresses as well as () and '
+# 12 subtokens == 44 words
+# 11 subtokens == 96 words
+
+bert_vocab = tokenizer.get_vocab().keys()
+words_in_bert = set([word in bert_vocab for word in longest])
+
+longest = [word for word in longest if word[:4] != "http"]
+foreign_tokensRegex = re.compile(r"^(\(|'|\")")
+subword_tokens = [word for word in longest if not foreign_tokensRegex.search(word)] 
+
+#tokenizer.add_tokens(["TITO1", "TITO2"], special_tokens=True)
+#tokenizer.add_special_tokens(["TITO1", "TITO2"])
+print(len(tokenizer))
+special_tokens_dict = {'additional_special_tokens': subword_tokens}
+num_added_toks = tokenizer.add_special_tokens(special_tokens_dict)
+print(len(tokenizer))
+# RESIZE...
+
+bert_model.resize_token_embeddings(len(tokenizer)) 
+
+#print(tokenizer.get_vocab()[bert_vocab[10]])
+raise SystemExit
 #text = tokenizer.tokenize(train_corpus)
 #final_unks = []
 #for i,  w in enumerate(text):
