@@ -34,14 +34,11 @@ unk_tokens = dict()
 long_tokens = list()
 for w in faroese_words: 
     single_tokens = tokenizer.tokenize(w)
-    if "[UNK]" in single_tokens:
-        unk_tokens[w] = single_tokens
     long_tokens.append((w, single_tokens))
 
 testing = [len(subwords[1]) for subwords in long_tokens]
 print(set(testing))
 print(max(testing))  # 25 highest segmentations.
-print(unk_tokens)
 
 longest = [subwords[0] for subwords in long_tokens if len(subwords[1]) >= 11]  # try segment from 10 or higher and clean web addresses as well as () and '
 # 12 subtokens == 44 words
@@ -65,7 +62,7 @@ print(len(tokenizer))
 bert_model.resize_token_embeddings(len(tokenizer)) 
 
 #print(tokenizer.get_vocab()[bert_vocab[10]])
-raise SystemExit
+
 #text = tokenizer.tokenize(train_corpus)
 #final_unks = []
 #for i,  w in enumerate(text):
@@ -106,26 +103,56 @@ corpus_file = "fao_wikipedia_2021_30K-sentences.txt"
 tokenizer = BertTokenizer.from_pretrained("bert-base-multilingual-cased")
 dataset = BERTDataset('.', corpus_file, tokenizer, max_length=100)
 dataloader = DataLoader(dataset=dataset,batch_size=32)
-print(dataloader)
+#print(dataloader)
 #print(dataset.train_set)
-raise SystemExit
 
-dataloader=DataLoader(dataset=dataset,batch_size=32)
+#dataloader=DataLoader(dataset=dataset,batch_size=32)
 
 eval_file = open("UD_Faroese-OFT/fo_oft-ud-test.conllu", "r", encoding="utf-8")  # https://www.youtube.com/watch?v=lvJRFMvWtFI
 faroese_oft = [sent for sent in parse_incr(eval_file)]
 
 def read_conll(input_file):
-    regexSent = re.compile(r"^#\stext\s=\s")
-    text_oft = list()
-    for line in open(input_file, encoding="utf-8"):
-        if line.startswith("# text ="):
-            text_oft.append(regexSent.sub('', line))
-    return text_oft
+        """Reads a conllu file."""
+        ids = []
+        texts = []
+        tags = []
+        #
+        text = []
+        tag = []
+        idx = None
+        for line in open(input_file, encoding="utf-8"):
+            if line.startswith("# sent_id ="):
+                idx = line.strip().split()[-1]
+                ids.append(idx)
+            elif line.startswith("#"):
+                pass
+            elif line.strip() == "":
+                texts.append(text)
+                tags.append(tag)
+                text, tag = [], []
+            else:
+                try:
+                    splits = line.strip().split("\t")
+                    token = splits[1] # the token
+                    label = splits[3] # the UD POS Tag label
+                    text.append(token)
+                    tag.append(label)
+                except:
+                    print(line)
+                    print(idx)
+                    raise
+        return ids, texts, tags
 
-texts = "\n".join(read_conll("UD_Faroese-OFT/fo_oft-ud-test.conllu"))
-texts = tokenizer.tokenize(texts)
-print(texts[:10])
+ids, texts, tags = read_conll("UD_Faroese-OFT/fo_oft-ud-test.conllu")
+print(ids[-4])
+print(texts[-4])
+print(tags[-4])
+print(faroese_oft[-4])
+
+raise SystemExit
+
+
+# MODELS!!! 
 
 class fineBERT(torch.nn.Module):  # https://luv-bansal.medium.com/fine-tuning-bert-for-text-classification-in-pytorch-503d97342db2
     def __init__(self):
